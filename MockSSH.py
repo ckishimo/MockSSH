@@ -8,6 +8,7 @@ MockSSH: Mock an SSH server and define all commands it supports.
 import os
 import shlex
 import sys
+import re
 from threading import Thread
 
 from twisted.conch import avatar, interfaces as conchinterfaces, recvline
