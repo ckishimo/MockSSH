@@ -495,3 +495,9 @@ def startThreadedServer(commands,
 
 def stopThreadedServer():
     reactor.callFromThread(reactor.stop)
+
+
+if __name__ == "__main__":
+    users = {'root': 'x'}
+    commands = [command_exit]
+    runServer(commands, **users)
