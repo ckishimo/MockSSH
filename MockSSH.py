@@ -24,7 +24,7 @@ import settings
 import re
 
 __all__ = ("SSHCommand", "PromptingCommand", "ArgumentValidatingCommand",
-           "runServer", "startThreadedServer", "stopThreadedServer")
+           "runServer", "startThreadedServer", "stopThreadedServer", "TelnetCommand")
 
 
 class SSHServerError(Exception):
