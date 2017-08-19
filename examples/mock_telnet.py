@@ -20,14 +20,12 @@ def do_dir(instance):
 def do_dir_error(instance):
     instance.writeln("Unknown command")
 
-command_dir = MockSSH.ArgumentValidatingCommand('dir', [do_dir], [do_dir_error])
+command_dir = MockSSH.TelnetCommand('dir', [do_dir], [do_dir_error])
 
 #
 # command show
 #
 def do_show(instance):
-	# Instance
-	# <class 'MockSSH.ArgumentValidatingCommand'>
     print('debug function do_show')
     print('sshuser: %s' % settings.sshuser)
 
@@ -60,7 +58,7 @@ def do_show(instance):
 	            out = out.rstrip('\r\n')
             	instance.writeln(out)
 
-command_show = MockSSH.ArgumentValidatingCommand('show', [do_show], *["vlan", "arp", "mac-address", 
+command_show = MockSSH.TelnetCommand('show', [do_show], *["vlan", "arp", "mac-address", 
     "module", "version","ip bgp summary","ip bgp neighbors", "ipv6 neighbors", "lldp neighbors", 
     "lldp neighbors detail", "lldp neighbors detail ports eth 3/1", 
     "ip interface", "running begin ntp", "ip bgp summary", "ip bgp neighbors"])
@@ -70,18 +68,14 @@ commands = [ command_show, command_dir ]
 port = 9999
 server = '127.0.0.1'
 users = {'mx': 'x', 'local' : 'x', 'testadmin': 'x'}
+
 # Define location of all mocked outputs
 outputs = 'netiron/'
 tn = ''
-print(type(MockSSH)) 		# module
-print(type(command_show))	# <class 'MockSSH.ArgumentValidatingCommand'>
 
-#print(super(command_show))
-#print(type(p))
 print("* SSH server running on %s port %d" % (server,port))
-print("* Use user: local, password: x")
+print("* Use user: local, password: x (outputs from disk)")
+print("* Use user: ROUTER_NAME, password: x (outputs directly from telnet router)")
 
-# ckishimo: less verbose
-log.startLogging(sys.stderr)
 settings.init()
 MockSSH.runServer(commands, prompt="hostname#", interface='127.0.0.1', port=9999, **users)
