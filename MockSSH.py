@@ -19,6 +19,10 @@ from twisted.cred import checkers, portal
 from twisted.internet import reactor
 from zope.interface import implements
 
+import telnetlib
+import settings
+import re
+
 __all__ = ("SSHCommand", "PromptingCommand", "ArgumentValidatingCommand",
            "runServer", "startThreadedServer", "stopThreadedServer")
 
@@ -132,6 +136,21 @@ class ArgumentValidatingCommand(SSHCommand):
             [func(self) for func in self.success_callbacks]
         self.exit()
 
+class TelnetCommand(SSHCommand):
+
+    def __init__(self, name, callbacks, *args):
+        self.name = name
+        self.callbacks = callbacks
+        self.required_arguments = [name] + list(args)
+        self.protocol = None
+
+    def __call__(self, protocol, *args):
+        SSHCommand.__init__(self, protocol, self.name, *args)
+        return self
+
+    def start(self):
+        [func(self) for func in self.callbacks]
+        self.exit()
 
 class SSHShell(object):
 
@@ -237,6 +256,22 @@ class SSHProtocol(recvline.HistoricRecvLine):
             '\x03': self.handle_CTRL_C,
         })
 
+        # Use the username as destination router to connect to
+        print("* Connecting to %s" % self.user.user)
+
+        # FIXME: Adapt using settings.py
+        # Telnet to the device
+        tn = telnetlib.Telnet(self.user.user)
+        tn.read_until("login: ")
+        tn.write(settings.telnet_user + "\n")
+        tn.read_until("Password:")
+        tn.write(settings.telnet_password + "\n")
+        tn.read_until('>', 5)
+
+        # Dirty hack using global
+        settings.telnet_id = tn
+        settings.sshuser = self.user.user
+        
     def lineReceived(self, line):
         if len(self.cmdstack):
             self.cmdstack[-1].lineReceived(line)
@@ -247,6 +282,8 @@ class SSHProtocol(recvline.HistoricRecvLine):
 
     # Overriding to prevent terminal.reset() and setInsertMode()
     def initializeScreen(self):
+        # Change prompt
+        self.prompt = self.user.user + '#'
         pass
 
     def getCommand(self, name):
