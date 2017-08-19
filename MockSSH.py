@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-
 """
 MockSSH: Mock an SSH server and define all commands it supports.
 """
@@ -9,9 +8,6 @@ MockSSH: Mock an SSH server and define all commands it supports.
 import os
 import shlex
 import sys
-import telnetlib
-import settings
-import re
 from threading import Thread
 
 from twisted.conch import avatar, interfaces as conchinterfaces, recvline
@@ -26,11 +22,14 @@ from zope.interface import implements
 __all__ = ("SSHCommand", "PromptingCommand", "ArgumentValidatingCommand",
            "runServer", "startThreadedServer", "stopThreadedServer")
 
+
 class SSHServerError(Exception):
     """Raised when an SSH server error is encountered"""
 
+
 class MockSSHError(Exception):
     """Raised by MockSSH scripts."""
+
 
 class SSHCommand(object):
     """
@@ -75,11 +74,50 @@ class SSHCommand(object):
     def resume(self):
         pass
 
+
+class PromptingCommand(SSHCommand):
+
+    def __init__(self,
+                 name,
+                 password,
+                 prompt,
+                 success_callbacks=[],
+                 failure_callbacks=[]):
+        self.name = name
+        self.valid_password = password
+        self.prompt = prompt
+        self.success_callbacks = success_callbacks
+        self.failure_callbacks = failure_callbacks
+
+        self.protocol = None  # protocol is set by __call__
+
+    def __call__(self, protocol, *args):
+        SSHCommand.__init__(self, protocol, self.name, *args)
+        return self
+
+    def start(self):
+        self.write(self.prompt)
+        self.protocol.password_input = True
+
+    def lineReceived(self, line):
+        self.validate_password(line.strip())
+
+    def validate_password(self, password):
+        if password == self.valid_password:
+            [func(self) for func in self.success_callbacks]
+        else:
+            [func(self) for func in self.failure_callbacks]
+
+        self.protocol.password_input = False
+        self.exit()
+
+
 class ArgumentValidatingCommand(SSHCommand):
 
-    def __init__(self, name, callbacks, *args):
+    def __init__(self, name, success_callbacks, failure_callbacks, *args):
         self.name = name
-        self.callbacks = callbacks
+        self.success_callbacks = success_callbacks
+        self.failure_callbacks = failure_callbacks
         self.required_arguments = [name] + list(args)
         self.protocol = None  # set in __call__
 
@@ -88,8 +126,12 @@ class ArgumentValidatingCommand(SSHCommand):
         return self
 
     def start(self):
-        [func(self) for func in self.callbacks]
+        if not tuple(self.args) == tuple(self.required_arguments):
+            [func(self) for func in self.failure_callbacks]
+        else:
+            [func(self) for func in self.success_callbacks]
         self.exit()
+
 
 class SSHShell(object):
 
@@ -179,7 +221,6 @@ class SSHProtocol(recvline.HistoricRecvLine):
         self.commands = commands
         self.password_input = False
         self.cmdstack = []
-        print('* debug: init SSHProtocol')
 
     def connectionMade(self):
         recvline.HistoricRecvLine.connectionMade(self)
@@ -187,33 +228,14 @@ class SSHProtocol(recvline.HistoricRecvLine):
 
         transport = self.terminal.transport.session.conn.transport
         transport.factory.sessions[transport.transport.sessionno] = self
+        # p = self.terminal.transport.session.conn.transport.transport.getPeer()
+        # self.client_ip = p.host
 
         self.keyHandlers.update({
             '\x04': self.handle_CTRL_D,
             '\x15': self.handle_CTRL_U,
             '\x03': self.handle_CTRL_C,
         })
-        print('* debug: connection made')
-
-        # self is SSHProtocol
-        print(type(self))
-        print(self.__class__.__name__)
-
-        # Use the username as destination router to connect to
-        print("* Connecting to %s" % self.user.user)
-
-        # FIXME: Adapt using settings.py
-        # Telnet to the device
-        tn = telnetlib.Telnet(self.user.user)
-        tn.read_until("login: ")
-        tn.write(settings.telnet_user + "\n")
-        tn.read_until("Password:")
-        tn.write(settings.telnet_password + "\n")
-        tn.read_until('>', 5)
-
-        # Dirty hack using global
-        settings.telnet_id = tn
-        settings.sshuser = self.user.user
 
     def lineReceived(self, line):
         if len(self.cmdstack):
@@ -225,9 +247,6 @@ class SSHProtocol(recvline.HistoricRecvLine):
 
     # Overriding to prevent terminal.reset() and setInsertMode()
     def initializeScreen(self):
-        print('* debug: screen: %s %s' % (self.user.user, self.prompt))
-        # Change prompt
-        self.prompt = self.user.user + '#'
         pass
 
     def getCommand(self, name):
@@ -281,10 +300,7 @@ class SSHAvatar(avatar.ConchUser):
     def __init__(self, user, prompt, commands):
         avatar.ConchUser.__init__(self)
 
-        print('* debug: function ssh avatar')
         self.user = user
-        global myuser
-        myuser = user
         self.prompt = prompt
         self.commands = commands
 
@@ -298,7 +314,6 @@ class SSHAvatar(avatar.ConchUser):
         protocol.makeConnection(session.wrapProtocol(serverProtocol))
 
     def getPty(self, terminal, windowSize, attrs):
-        print('* debug: get pty')
         return None
 
     def execCommand(self, protocol, cmd):
