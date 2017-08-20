@@ -29,24 +29,30 @@ def do_show(instance):
     print('debug function do_show')
     print('sshuser: %s' % settings.sshuser)
 
-    # FIXME: show chassis alarms does not give the same output when ran multiple times
     # FIXME: Find > in the output it will stop the output
-    # FIXME: Remove the prompt returned from the telent output to the ssh output
-
     if settings.sshuser == 'mx':
         cmd = ' '.join(instance.args)
         command = "%s | no-more\r" % cmd
         print('* command to send over telnet: %s' % command)
         settings.telnet_id.write(command)
-        out = settings.telnet_id.read_until('>', 5)
-        
-       	instance.writeln(out)
+        #out = settings.telnet_id.read_until(">", 5)
+        out = settings.telnet_id.read_until(b">",5)
+        # Do not display the first empty line
+        out1 =  out[out.find('\n'):]
+        # Do not display the command again (echo)
+        out2 = out1[len(command):]
+        # Do not display the prompt from the telnet session
+        out3 = out2[:out2.rfind('\n')]
+        instance.writeln(out3)
+
     elif settings.sshuser == "netiron":
         print('* netiron')
     	# Use netiron directory for outputs
+
     elif settings.sshuser == "fastiron":
         print('* fastiron')
     	# Use fastiron directory for outputs
+
     else:
     	print(instance.args)
     	tmp = '-'.join(instance.args)
@@ -79,3 +85,4 @@ print("* Use user: ROUTER_NAME, password: x (outputs directly from telnet router
 
 settings.init()
 MockSSH.runServer(commands, prompt="hostname#", interface='127.0.0.1', port=9999, **users)
+
