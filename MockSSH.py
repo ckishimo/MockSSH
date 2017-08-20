@@ -138,10 +138,9 @@ class ArgumentValidatingCommand(SSHCommand):
 
 class TelnetCommand(SSHCommand):
 
-    def __init__(self, name, callbacks, *args):
+    def __init__(self, name, callbacks):
         self.name = name
         self.callbacks = callbacks
-        self.required_arguments = [name] + list(args)
         self.protocol = None
 
     def __call__(self, protocol, *args):
