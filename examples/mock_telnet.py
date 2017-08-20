@@ -20,7 +20,7 @@ def do_dir(instance):
 def do_dir_error(instance):
     instance.writeln("Unknown command")
 
-command_dir = MockSSH.TelnetCommand('dir', [do_dir], [do_dir_error])
+command_dir = MockSSH.TelnetCommand('dir', [do_dir])
 
 #
 # command show
@@ -34,6 +34,7 @@ def do_show(instance):
         cmd = ' '.join(instance.args)
         command = "%s | no-more\r" % cmd
         print('* command to send over telnet: %s' % command)
+        # FIXME: Need to clean buffer, due to incomplete output from previous command
         settings.telnet_id.write(command)
         #out = settings.telnet_id.read_until(">", 5)
         out = settings.telnet_id.read_until(b">",5)
@@ -64,11 +65,7 @@ def do_show(instance):
 	            out = out.rstrip('\r\n')
             	instance.writeln(out)
 
-command_show = MockSSH.TelnetCommand('show', [do_show], *["vlan", "arp", "mac-address", 
-    "module", "version","ip bgp summary","ip bgp neighbors", "ipv6 neighbors", "lldp neighbors", 
-    "lldp neighbors detail", "lldp neighbors detail ports eth 3/1", 
-    "ip interface", "running begin ntp", "ip bgp summary", "ip bgp neighbors"])
-
+command_show = MockSSH.TelnetCommand('show', [do_show])
 commands = [ command_show, command_dir ]
 
 port = 9999
